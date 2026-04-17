@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Code Auto Fixer // Overdrive Core</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=Orbitron:wght@500;700;900&display=swap');
+
+        :root {
+            --bg-base: #020205; --panel-bg: rgba(10, 10, 15, 0.4); --text-main: #e0e0e0;
+            --primary-neon: #00f3ff; --secondary-neon: #ff00ea; --alert-neon: #ff2a2a; --success-neon: #39ff14;
+            --font-ui: 'Orbitron', sans-serif; --font-code: 'Fira Code', monospace;
+            --border-style: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body.theme-vaporwave { --bg-base: #1a0b2e; --primary-neon: #ff71ce; --secondary-neon: #01cdfe; --alert-neon: #ffb7b2; --success-neon: #05ffa1; }
+        body.theme-fire-ice { --bg-base: #0a0200; --primary-neon: #ff4500; --secondary-neon: #00e5ff; --alert-neon: #ff0000; --success-neon: #00ffff; }
+        body.theme-matrix { --bg-base: #000500; --primary-neon: #00ff00; --secondary-neon: #008800; --alert-neon: #ff0000; --success-neon: #00ff00; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { background-color: var(--bg-base); color: var(--text-main); font-family: var(--font-ui); min-height: 100vh; overflow-x: hidden; overflow-y: hidden; transition: background-color 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
+        .vignette { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; background: radial-gradient(circle at center, transparent 30%, var(--bg-base) 100%); pointer-events: none; }
+
+        /* --- CRT OVERLAY EFFECT --- */
+        .crt-overlay {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 9999;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+            animation: crtFlicker 0.15s infinite;
+        }
+        
+        @keyframes crtFlicker {
+            0% { opacity: 0.95; }
+            50% { opacity: 0.85; }
+            100% { opacity: 0.95; }
+        }
+
+        
+        #gatewayScreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.95) 100%); overflow: hidden; }
+        
+        .cyber-grid {
+            position: absolute; bottom: -30%; left: -50%; width: 200%; height: 100%;
+            background-image: linear-gradient(to right, rgba(0, 243, 255, 0.15) 1px, transparent 1px), linear-gradient(to top, rgba(0, 243, 255, 0.15) 1px, transparent 1px);
+            background-size: 60px 60px; transform: perspective(600px) rotateX(75deg); animation: gridMove 2s linear infinite; z-index: -1;
+        }
+        @keyframes gridMove { 0% { transform: perspective(600px) rotateX(75deg) translateY(0); } 100% { transform: perspective(600px) rotateX(75deg) translateY(60px); } }
+
+        .gateway-card { background: rgba(0,0,0,0.7); border: var(--border-style); border-top: 1px solid rgba(255,255,255,0.15); border-left: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 50px 60px; text-align: center; display: flex; flex-direction: column; align-items: center; box-shadow: 0 20px 80px rgba(0,0,0,0.9), inset 0 0 30px rgba(var(--primary-neon), 0.1); max-width: 800px; width: 90%; backdrop-filter: blur(10px); opacity: 0; animation: cyberDrop 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; position: relative; z-index: 2; }
+        
+        .gateway-accent-line { width: 80px; height: 4px; background: var(--primary-neon); margin-bottom: 25px; border-radius: 2px; box-shadow: 0 0 20px var(--primary-neon); }
+        
+        .gateway-title { font-size: clamp(2rem, 5vw, 3.2rem); text-align: center; text-transform: uppercase; letter-spacing: 5px; margin-bottom: 20px; color: #ffffff; text-shadow: 0 0 15px var(--primary-neon), 0 0 30px var(--primary-neon); font-weight: 900; }
+        
+        .gateway-quote { font-family: var(--font-code); color: var(--secondary-neon); font-size: 1.1rem; margin-bottom: 45px; letter-spacing: 2px; text-transform: uppercase; white-space: nowrap; overflow: hidden; border-right: 3px solid var(--secondary-neon); width: 0; animation: typing 3.5s steps(55, end) 1s forwards, blink 0.8s infinite; text-shadow: 0 0 10px var(--secondary-neon); }
+        @keyframes typing { to { width: 55ch; } }
+        @keyframes blink { 50% { border-color: transparent; } }
+
+        .gateway-btn { background: rgba(0,0,0,0.5); color: var(--text-main); border: 1px solid var(--primary-neon); padding: 16px 50px; font-size: 1.1rem; cursor: pointer; text-transform: uppercase; font-family: var(--font-ui); font-weight: 900; border-radius: 4px; letter-spacing: 4px; box-shadow: inset 0 0 15px rgba(var(--primary-neon), 0.2); transition: all 0.3s; opacity: 0; animation: fadeIn 1.5s 2.5s ease forwards; }
+        .gateway-btn:hover { background: var(--primary-neon); color: var(--bg-base); box-shadow: 0 0 40px var(--primary-neon); border-color: var(--primary-neon); transform: scale(1.05); }
+
+        @keyframes cyberDrop { 0% { transform: translateY(-80px) scale(0.9); opacity: 0; filter: blur(10px); } 100% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); } }
+        @keyframes warpExit { 0% { transform: scale(1); opacity: 1; filter: blur(0); } 100% { transform: scale(2.5) translateZ(100px); opacity: 0; filter: blur(30px); } }
+
+        /* --- 2. MAIN DASHBOARD --- */
+        .app-wrapper { display: none; gap: 30px; max-width: 1500px; width: 95%; margin: 40px auto; align-items: flex-start; z-index: 10; position: relative; }
+        
+        .glass-panel { background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,0,0,0.4) 100%); border: var(--border-style); border-top: 1px solid rgba(255,255,255,0.1); border-left: 1px solid rgba(255,255,255,0.1); border-radius: 12px; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(var(--primary-neon), 0.05); transition: border-color 0.5s, box-shadow 0.5s; }
+        .glass-panel:hover { box-shadow: 0 15px 45px 0 rgba(0, 0, 0, 0.8), inset 0 0 30px rgba(var(--primary-neon), 0.1); border-color: rgba(var(--primary-neon), 0.3); }
+
+        .controls-panel { width: 320px; flex-shrink: 0; padding: 25px; position: sticky; top: 40px; opacity: 0; animation: slideInLeft 0.8s 0.1s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+        .main-container { flex-grow: 1; padding: 40px; min-width: 0; opacity: 0; animation: slideInRight 0.8s 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+
+        @keyframes slideInLeft { 0% { transform: translateX(-100px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+        @keyframes slideInRight { 0% { transform: translateX(100px); opacity: 0; } 100% { transform: translateX(0); opacity: 1; } }
+
+        h1.dashboard-title { text-align: center; text-transform: uppercase; letter-spacing: 4px; margin-bottom: 30px; color: transparent; -webkit-text-stroke: 1px var(--primary-neon); text-shadow: 0 0 15px rgba(var(--primary-neon), 0.5); font-weight: 900; font-size: 2.2rem; }
+        h2.sidebar-title { font-size: 1.4rem; color: var(--text-main); text-shadow: 0 0 10px var(--primary-neon); border-bottom: 2px solid var(--secondary-neon); padding-bottom: 10px; margin-bottom: 20px; text-align: center; letter-spacing: 2px;}
+
+        .control-group { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-bottom: 20px;}
+        label { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 2px; }
+        select { width: 100%; background: rgba(0,0,0,0.4); color: var(--primary-neon); border: 1px solid rgba(255,255,255,0.1); padding: 14px; font-family: var(--font-ui); outline: none; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        select:focus { border-color: var(--primary-neon); box-shadow: 0 0 20px rgba(var(--primary-neon), 0.2); }
+        
+        textarea { width: 100%; background: rgba(0,0,0,0.5); color: var(--text-main); border: 1px solid rgba(255,255,255,0.1); padding: 20px; font-family: var(--font-code); font-size: 1rem; border-radius: 8px; outline: none; transition: all 0.4s ease; margin-bottom: 25px; resize: vertical; min-height: 280px; box-shadow: inset 0 5px 15px rgba(0,0,0,0.5); }
+        textarea:focus { border-color: var(--primary-neon); box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 20px rgba(var(--primary-neon), 0.2); }
+
+        .btn { background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent); color: var(--primary-neon); border: 1px solid var(--primary-neon); padding: 18px; width: 100%; font-size: 1.2rem; cursor: pointer; text-transform: uppercase; font-family: var(--font-ui); font-weight: 900; border-radius: 6px; transition: all 0.2s; position: relative; overflow: hidden; letter-spacing: 3px; box-shadow: 0 0 15px rgba(var(--primary-neon), 0.1); }
+        .btn::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: 0.5s; }
+        .btn:hover::before { left: 100%; }
+        .btn:hover { background: var(--primary-neon); color: var(--bg-base); box-shadow: 0 0 30px var(--primary-neon), 0 0 60px var(--primary-neon); text-shadow: none; }
+
+        .terminal { display: none; margin-top: 20px; padding: 30px; background: #000; border: 1px solid var(--secondary-neon); color: var(--primary-neon); min-height: 200px; border-radius: 8px; position: relative; overflow: hidden;}
+        .terminal::after { content:""; position: absolute; top:0; left:0; width:100%; height:100%; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.2) 2px, rgba(0,0,0,0.2) 4px); pointer-events: none;}
+        
+        .code-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-top: 25px; }
+        .code-box { background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.05); border-top: 3px solid var(--primary-neon); padding: 25px; border-radius: 8px; overflow-x: auto; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); transition: 0.3s; }
+        .code-box.fixed { border-top-color: var(--success-neon); }
+        pre { font-family: var(--font-code); color: #ddd; font-size: 0.95rem; line-height: 1.6; }
+        .error-highlight { background: rgba(255, 42, 42, 0.2); border-left: 3px solid var(--alert-neon); display: block; padding-left: 10px; animation: pulseError 0.8s infinite alternate; }
+
+        .chat-container { margin-top: 30px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; overflow: hidden; backdrop-filter: blur(5px);}
+        .chat-history { padding: 20px; max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; font-size: 0.95rem; }
+        .msg-user { color: var(--bg-base); background: var(--secondary-neon); align-self: flex-end; padding: 10px 15px; border-radius: 12px 12px 0 12px; font-weight: bold; box-shadow: 0 0 15px rgba(var(--secondary-neon), 0.3);}
+        .msg-ai { color: var(--primary-neon); background: rgba(0,0,0,0.8); border: 1px solid var(--primary-neon); align-self: flex-start; padding: 10px 15px; border-radius: 12px 12px 12px 0; box-shadow: 0 0 10px rgba(var(--primary-neon), 0.1);}
+        .chat-input-area { display: flex; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.6);}
+        .chat-input-area input { flex: 1; border: none; padding: 20px; border-radius: 0; background: transparent; color: #fff;}
+        .chat-btn { background: var(--primary-neon); color: var(--bg-base); border: none; padding: 0 30px; cursor: pointer; font-family: var(--font-ui); font-weight: 900; letter-spacing: 2px; transition: 0.3s;}
+        .chat-btn:hover { background: var(--text-main); color: #000; }
+
+        @keyframes fadeIn { to { opacity: 1; } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulseError { to { background: rgba(255, 42, 42, 0.5); } }
+        .spinner { width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--secondary-neon); border-right: 3px solid var(--primary-neon); border-radius: 50%; animation: spin 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite; margin: 30px auto; display: block;}
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="crt-overlay"></div>
+
+    <canvas id="quantumCanvas" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -2;"></canvas>
+    <div class="vignette"></div>
+
+    <div id="gatewayScreen">
+        <div class="cyber-grid"></div>
+        <div class="gateway-card">
+            <div class="gateway-accent-line"></div>
+            <h1 class="gateway-title">AI CODE AUTO FIXER</h1>
+            <p class="gateway-quote">&gt; // WE ALL MAKE MISTAKES. LET'S FIX THIS ONE TOGETHER.</p>
+            <button class="gateway-btn" onclick="enterMainframe()">Initialize System</button>
+        </div>
+    </div>
+
+    <div class="app-wrapper" id="mainApp">
+        <aside class="controls-panel glass-panel">
+            <h2 class="sidebar-title">CORE_CTRL</h2>
+            
+            <div class="control-group">
+                <label>Target Matrix (Language)</label>
+                <select id="languageSelector">
+                    <option value="Python">Python (Full AST Scan)</option>
+                    <option value="JavaScript">JavaScript (Neural Scan)</option>
+                    <option value="C++">C++ (Neural Scan)</option>
+                    <option value="Java">Java (Neural Scan)</option>
+                    <option value="C#">C# (Neural Scan)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>Color Theme</label>
+                <select id="themeSelector">
+                    <option value="theme-cyberpunk">Cyberpunk</option>
+                    <option value="theme-vaporwave">Vaporwave</option>
+                    <option value="theme-fire-ice">Fire & Ice</option>
+                    <option value="theme-matrix">Matrix</option>
+                </select>
+            </div>
+        </aside>
+
+        <main class="main-container glass-panel" id="appInterface">
+            <h1 class="dashboard-title">NEURAL FIXER CORE</h1>
+            
+            <div id="inputPhase">
+                <textarea id="sourceCode" placeholder="> Inject Corrupted Payload..."></textarea>
+                <button class="btn" onclick="executeScan()">INITIATE SEQUENCE</button>
+            </div>
+
+            <div class="terminal" id="terminal">
+                <div id="terminalText" style="font-family: var(--font-code); line-height: 1.8;"></div>
+                <div class="spinner" id="spinner" style="display:none;"></div>
+            </div>
+
+            <div id="resultsPhase" style="display: none; animation: fadeInUp 0.8s ease;">
+                <p id="diagnosticsOut" style="color: var(--secondary-neon); font-weight: bold; letter-spacing: 1px;"></p>
+                
+                <div class="code-grid">
+                    <div class="code-box">
+                        <h3 style="color: var(--primary-neon); margin-bottom:15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:10px;">// FRAGMENT</h3>
+                        <pre id="originalOut"></pre>
+                    </div>
+                    <div class="code-box fixed">
+                        <h3 style="color: var(--success-neon); margin-bottom:15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom:10px;">// OPTIMIZED</h3>
+                        <pre id="fixedOut"></pre>
+                    </div>
+                </div>
+
+                <div class="chat-container">
+                    <div class="chat-history" id="chatHistory">
+                        <div class="msg-ai">SYSTEM: Code structure rebuilt. Neural Chat online. Awaiting queries.</div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="> Query the AI..." onkeypress="handleChatEnter(event)">
+                        <button class="chat-btn" onclick="sendChatMessage()">SEND</button>
+                    </div>
+                </div>
+
+                <button class="btn" style="margin-top:30px; background: transparent; color: #888; border-color: #555;" onclick="resetUI()">SYSTEM REBOOT</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function enterMainframe() {
+            const gateway = document.getElementById('gatewayScreen');
+            const app = document.getElementById('mainApp');
+            
+            gateway.style.animation = 'warpExit 0.8s cubic-bezier(0.55, 0.055, 0.675, 0.19) forwards';
+            
+            setTimeout(() => {
+                gateway.style.display = 'none';
+                document.body.style.overflowY = 'auto';
+                app.style.display = 'flex';
+            }, 750);
+        }
+
+        const themeSelector = document.getElementById('themeSelector');
+        const body = document.body;
+
+        themeSelector.addEventListener('change', (e) => {
+            body.className = body.className.replace(/theme-\w+/, '');
+            if(e.target.value !== 'theme-cyberpunk') body.classList.add(e.target.value);
+            
+            const style = getComputedStyle(document.body);
+            const neon = style.getPropertyValue('--primary-neon').trim();
+            document.querySelector('.cyber-grid').style.backgroundImage = `
+                linear-gradient(to right, ${neon}33 1px, transparent 1px),
+                linear-gradient(to top, ${neon}33 1px, transparent 1px)
+            `;
+        });
+
+        // Initialize Quantum Canvas Background
+        const canvas = document.getElementById('quantumCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, particles = [];
+        let mouse = { x: null, y: null };
+
+        window.addEventListener('mousemove', (e) => { mouse.x = e.x; mouse.y = e.y; });
+        window.addEventListener('resize', () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; });
+        window.dispatchEvent(new Event('resize'));
+
+        class QuantumNode {
+            constructor() {
+                this.x = Math.random() * width; this.y = Math.random() * height;
+                this.size = Math.random() * 2; this.baseX = this.x; this.baseY = this.y;
+                this.density = (Math.random() * 30) + 1; this.angle = Math.random() * 360;
+                this.speed = Math.random() * 0.5 + 0.1;
+            }
+            update() {
+                this.angle += this.speed * 0.02;
+                this.x = this.baseX + Math.cos(this.angle) * 30;
+                this.y = this.baseY + Math.sin(this.angle) * 30;
+                if (mouse.x != null) {
+                    let dx = mouse.x - this.x, dy = mouse.y - this.y;
+                    let distance = Math.sqrt(dx * dx + dy * dy);
+                    let force = (200 - distance) / 200;
+                    if (distance < 200) {
+                        this.x -= (dx / distance) * force * this.density;
+                        this.y -= (dy / distance) * force * this.density;
+                    }
+                }
+            }
+            draw(color) {
+                ctx.fillStyle = color; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.closePath(); ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 150; i++) particles.push(new QuantumNode());
+
+        function animateCanvas() {
+            ctx.fillStyle = 'rgba(0,0,0,0.1)'; ctx.fillRect(0, 0, width, height);
+            const style = getComputedStyle(document.body);
+            const neon = style.getPropertyValue('--primary-neon').trim();
+            const secNeon = style.getPropertyValue('--secondary-neon').trim();
+            for (let i = 0; i < particles.length; i++) {
+                particles[i].update(); particles[i].draw(i % 3 === 0 ? secNeon : neon);
+            }
+            requestAnimationFrame(animateCanvas);
+        }
+        animateCanvas();
+
+        let currentOriginalCode = "", currentFixedCode = "";
+
+        async function typeTerminal(element, texts) {
+            element.innerHTML = "";
+            for (let text of texts) {
+                let p = document.createElement('p'); p.style.opacity = '0'; p.style.transform = 'translateY(10px)'; p.style.transition = 'all 0.3s ease'; p.innerText = text; element.appendChild(p);
+                setTimeout(() => { p.style.opacity = '1'; p.style.transform = 'translateY(0)'; }, 50);
+                await new Promise(r => setTimeout(r, 400));
+            }
+            document.getElementById('spinner').style.display = 'block';
+        }
+
+        function highlightError(code, lineNum) {
+            if (!lineNum) return code;
+            let lines = code.split('\n');
+            if (lineNum > 0 && lineNum <= lines.length) lines[lineNum - 1] = `<span class="error-highlight">${lines[lineNum - 1]}</span>`;
+            return lines.join('\n');
+        }
+
+        async function executeScan() {
+            const code = document.getElementById('sourceCode').value;
+            const lang = document.getElementById('languageSelector').value;
+            if (!code.trim()) return;
+
+            document.getElementById('inputPhase').style.display = 'none';
+            const term = document.getElementById('terminal');
+            const termText = document.getElementById('terminalText');
+            document.getElementById('spinner').style.display = 'none';
+            term.style.display = 'block';
+
+            const typingPromise = typeTerminal(termText, [
+                `> INITIATING ${lang.toUpperCase()} PROTOCOLS...`, 
+                "> BREACHING MAINFRAME ENCRYPTION...", 
+                "> LLAMA 3.1 NEURAL SYNTHESIS INITIATED..."
+            ]);
+
+            try {
+                const response = await fetch('/api/fix_code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ source_code: code, language: lang, api_key: "" })
+                });
+                const data = await response.json();
+                await typingPromise;
+
+                if (!response.ok) throw new Error(data.detail);
+
+                currentOriginalCode = data.original_code; currentFixedCode = data.fixed_code;
+                document.getElementById('diagnosticsOut').innerText = `> ${data.diagnostics}`;
+                document.getElementById('originalOut').innerHTML = highlightError(data.original_code, data.error_line);
+                document.getElementById('fixedOut').innerText = data.fixed_code;
+                document.getElementById('chatHistory').innerHTML = `<div class="msg-ai" style="animation: fadeInUp 0.5s;"><b>DIAGNOSTIC REPORT:</b><br>${data.explanation}</div>`;
+
+                term.style.display = 'none'; document.getElementById('resultsPhase').style.display = 'block';
+            } catch (error) {
+                await typingPromise;
+                document.getElementById('spinner').style.display = 'none';
+                termText.innerHTML += `<p style="color:var(--alert-neon); margin-top:20px; font-size:1.2rem; font-weight:bold; animation: glitch 0.2s infinite;">[CRITICAL FAILURE]: ${error.message}</p><button class="btn" style="margin-top:20px;" onclick="resetUI()">ABORT & REBOOT</button>`;
+            }
+        }
+
+        function handleChatEnter(event) { if (event.key === "Enter") sendChatMessage(); }
+
+        async function sendChatMessage() {
+            const inputField = document.getElementById('chatInput');
+            const message = inputField.value.trim();
+            if (!message) return;
+
+            const chatHistory = document.getElementById('chatHistory');
+            chatHistory.innerHTML += `<div class="msg-user" style="animation: slideInRight 0.3s;">${message}</div>`;
+            inputField.value = ""; chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            const loadingId = "loading-" + Date.now();
+            chatHistory.innerHTML += `<div class="msg-ai" id="${loadingId}" style="opacity:0.6;">Processing...</div>`;
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_message: message, original_code: currentOriginalCode, fixed_code: currentFixedCode, api_key: "" })
+                });
+                const data = await response.json();
+                const loadDiv = document.getElementById(loadingId);
+                loadDiv.style.opacity = '1'; loadDiv.innerText = data.response;
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+            } catch (error) {
+                document.getElementById(loadingId).innerText = "[LINK SEVERED]"; document.getElementById(loadingId).style.color = "var(--alert-neon)";
+            }
+        }
+
+        function resetUI() {
+            document.getElementById('resultsPhase').style.display = 'none'; document.getElementById('terminal').style.display = 'none';
+            document.getElementById('inputPhase').style.display = 'block'; document.getElementById('sourceCode').value = '';
+        }
+
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = `@keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } } @keyframes glitch { 0% { transform: translate(2px) } 25% { transform: translate(-2px) } 50% { transform: translate(2px) } 75% { transform: translate(-2px) } 100% { transform: translate(2px) } }`;
+        document.head.appendChild(styleSheet);
+    </script>
+</body>
+</html>
